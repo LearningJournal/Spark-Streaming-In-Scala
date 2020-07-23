@@ -11,6 +11,8 @@ object StreamingWC extends Serializable {
     val spark = SparkSession.builder()
       .master("local[3]")
       .appName("Streaming Word Count")
+      .config("spark.streaming.stopGracefullyOnShutdown", "true")
+      .config("spark.sql.shuffle.partitions", 3)
       .getOrCreate()
 
     val linesDF = spark.readStream
@@ -19,11 +21,12 @@ object StreamingWC extends Serializable {
       .option("port", "9999")
       .load()
 
-    linesDF.printSchema()
+    // linesDF.printSchema()
 
-    //val wordsDF = linesDF.select(explode(split(col("value"), " ")).as("word"))
+    //val wordsDF = linesDF.select(explode(split(col("value"), " ")).alias("word"))
     val wordsDF = linesDF.select(expr("explode(split(value,' ')) as word"))
     val countsDF = wordsDF.groupBy("word").count()
+
 
     val wordCountQuery = countsDF.writeStream
       .format("console")
@@ -31,7 +34,9 @@ object StreamingWC extends Serializable {
       .option("checkpointLocation", "chk-point-dir")
       .start()
 
+    logger.info("Listening to localhost:9999")
     wordCountQuery.awaitTermination()
+
 
   }
 
