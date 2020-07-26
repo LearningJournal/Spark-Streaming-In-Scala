@@ -45,7 +45,7 @@ object FileStreamDemo extends Serializable {
         StructField("ItemDescription", StringType),
         StructField("ItemPrice", DoubleType),
         StructField("ItemQty", IntegerType),
-        StructField("TotalValue", DoubleType),
+        StructField("TotalValue", DoubleType)
       )))),
     ))
 
@@ -68,16 +68,16 @@ object FileStreamDemo extends Serializable {
       .withColumn("TotalValue", expr("LineItem.TotalValue"))
       .drop("LineItem")
 
-    val invoiceWriterQuery =flattenedDF.writeStream
+    val invoiceWriterQuery = flattenedDF.writeStream
       .format("json")
       .queryName("Flattened Invoice Writer")
       .outputMode("append")
       .option("path", "output")
       .option("checkpointLocation", "chk-point-dir")
-      .trigger(Trigger.ProcessingTime("3 minute"))
+      .trigger(Trigger.ProcessingTime("1 minute"))
       .start()
 
     logger.info("Flattened Invoice Writer started")
-      invoiceWriterQuery.awaitTermination()
+    invoiceWriterQuery.awaitTermination()
   }
 }
