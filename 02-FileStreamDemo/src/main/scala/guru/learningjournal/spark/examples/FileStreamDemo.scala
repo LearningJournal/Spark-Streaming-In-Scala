@@ -16,42 +16,11 @@ object FileStreamDemo extends Serializable {
       .master("local[3]")
       .appName("File Streaming Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
+      .config("spark.sql.streaming.schemaInference", "true")
       .getOrCreate()
-
-    val schema = StructType(List(
-      StructField("InvoiceNumber", StringType),
-      StructField("CreatedTime", LongType),
-      StructField("StoreID", StringType),
-      StructField("PosID", StringType),
-      StructField("CashierID", StringType),
-      StructField("CustomerType", StringType),
-      StructField("CustomerCardNo", StringType),
-      StructField("TotalAmount", DoubleType),
-      StructField("NumberOfItems", IntegerType),
-      StructField("PaymentMethod", StringType),
-      StructField("CGST", DoubleType),
-      StructField("SGST", DoubleType),
-      StructField("CESS", DoubleType),
-      StructField("DeliveryType", StringType),
-      StructField("DeliveryAddress", StructType(List(
-        StructField("AddressLine", StringType),
-        StructField("City", StringType),
-        StructField("State", StringType),
-        StructField("PinCode", StringType),
-        StructField("ContactNumber", StringType)
-      ))),
-      StructField("InvoiceLineItems", ArrayType(StructType(List(
-        StructField("ItemCode", StringType),
-        StructField("ItemDescription", StringType),
-        StructField("ItemPrice", DoubleType),
-        StructField("ItemQty", IntegerType),
-        StructField("TotalValue", DoubleType)
-      )))),
-    ))
 
     val rawDF = spark.readStream
       .format("json")
-      .schema(schema)
       .option("path", "input")
       .option("maxFilesPerTrigger", 1)
       .load()
