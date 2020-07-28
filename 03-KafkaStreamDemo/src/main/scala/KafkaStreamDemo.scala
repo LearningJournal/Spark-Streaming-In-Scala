@@ -70,7 +70,7 @@ object KafkaStreamDemo extends Serializable {
       .withColumn("TotalValue", expr("LineItem.TotalValue"))
       .drop("LineItem")
 
-    val invoiceWriterQuery = explodeDF.writeStream
+    val invoiceWriterQuery = flattenedDF.writeStream
       .format("json")
       .queryName("Flattened Invoice Writer")
       .outputMode("append")
