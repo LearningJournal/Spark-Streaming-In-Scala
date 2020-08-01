@@ -1,16 +1,17 @@
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions.{col, expr, from_json}
+import org.apache.spark.sql.functions.{col, expr, from_json, struct}
+import org.apache.spark.sql.avro.functions.to_avro
 import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, LongType, StringType, StructField, StructType}
 
-object MultiQueryDemo extends Serializable {
+object KafkaAvroSinkDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
 
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession.builder()
       .master("local[3]")
-      .appName("Kafka Sink Demo")
+      .appName("Kafka Avro Sink Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
       .getOrCreate()
 
@@ -55,27 +56,8 @@ object MultiQueryDemo extends Serializable {
 
     val valueDF = kafkaSourceDF.select(from_json(col("value").cast("string"), schema).alias("value"))
 
-    val notificationDF = valueDF.select("value.InvoiceNumber", "value.CustomerCardNo", "value.TotalAmount")
-      .withColumn("EarnedLoyaltyPoints", expr("TotalAmount * 0.2"))
-
-    val kafkaTargetDF = notificationDF.selectExpr("InvoiceNumber as key",
-      """to_json(named_struct('CustomerCardNo', CustomerCardNo,
-        |'TotalAmount', TotalAmount,
-        |'EarnedLoyaltyPoints', TotalAmount * 0.2
-        |)) as value""".stripMargin)
-
-    val notificationWriterQuery = kafkaTargetDF
-      .writeStream
-      .queryName("Notification Writer")
-      .format("kafka")
-      .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("topic", "notifications")
-      .outputMode("append")
-      .option("checkpointLocation", "chk-point-dir/notify")
-      .start()
-
     val explodeDF = valueDF.selectExpr("value.InvoiceNumber", "value.CreatedTime", "value.StoreID",
-      "value.PosID", "value.CustomerType", "value.PaymentMethod", "value.DeliveryType", "value.DeliveryAddress.City",
+      "value.PosID", "value.CustomerType", "value.CustomerCardNo", "value.DeliveryType", "value.DeliveryAddress.City",
       "value.DeliveryAddress.State", "value.DeliveryAddress.PinCode", "explode(value.InvoiceLineItems) as LineItem")
 
     val flattenedDF = explodeDF
@@ -86,16 +68,22 @@ object MultiQueryDemo extends Serializable {
       .withColumn("TotalValue", expr("LineItem.TotalValue"))
       .drop("LineItem")
 
-    val invoiceWriterQuery = flattenedDF.writeStream
-      .format("json")
+    val kafkaTargetDF = flattenedDF.select(expr("InvoiceNumber as key"),
+      to_avro(struct("*")).alias("value"))
+
+    val invoiceWriterQuery = kafkaTargetDF
+      .writeStream
       .queryName("Flattened Invoice Writer")
+      .format("kafka")
+      .option("kafka.bootstrap.servers", "localhost:9092")
+      .option("topic", "invoice-items")
       .outputMode("append")
-      .option("path", "output")
-      .option("checkpointLocation", "chk-point-dir/flatten")
+      .option("checkpointLocation", "chk-point-dir")
       .start()
 
-    logger.info("Waiting for Queries")
-    spark.streams.awaitAnyTermination()
+    logger.info("Start Writer Query")
+    invoiceWriterQuery.awaitTermination()
 
   }
+
 }
