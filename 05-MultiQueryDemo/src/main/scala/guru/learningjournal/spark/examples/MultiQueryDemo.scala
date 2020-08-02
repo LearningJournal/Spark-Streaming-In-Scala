@@ -1,7 +1,9 @@
+package guru.learningjournal.spark.examples
+
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.{col, expr, from_json}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 object MultiQueryDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)

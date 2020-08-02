@@ -1,8 +1,10 @@
+package guru.learningjournal.spark.examples
+
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions.{col, expr, from_json, struct}
 import org.apache.spark.sql.avro.functions.to_avro
-import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.functions.{col, expr, from_json, struct}
+import org.apache.spark.sql.types._
 
 object KafkaAvroSinkDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)

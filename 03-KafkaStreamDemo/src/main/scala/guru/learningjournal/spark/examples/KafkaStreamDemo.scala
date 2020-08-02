@@ -1,16 +1,19 @@
+package guru.learningjournal.spark.examples
+
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.{col, expr, from_json}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.types._
 
-object KafkaSinkDemo extends Serializable {
+object KafkaStreamDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
 
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession.builder()
       .master("local[3]")
-      .appName("Kafka Sink Demo")
+      .appName("Kafka Stream Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
       .getOrCreate()
 
@@ -45,7 +48,7 @@ object KafkaSinkDemo extends Serializable {
       )))),
     ))
 
-    val kafkaSourceDF = spark
+    val kafkaDF = spark
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:9092")
@@ -53,41 +56,33 @@ object KafkaSinkDemo extends Serializable {
       .option("startingOffsets", "earliest")
       .load()
 
-    val valueDF = kafkaSourceDF.select(from_json(col("value").cast("string"), schema).alias("value"))
+    //kafkaDF.printSchema()
 
-    val notificationDF = valueDF.select("value.InvoiceNumber", "value.CustomerCardNo", "value.TotalAmount")
-      .withColumn("EarnedLoyaltyPoints", expr("TotalAmount * 0.2"))
+    val valueDF = kafkaDF.select(from_json(col("value").cast("string"), schema).alias("value"))
 
-    //val kafkaTargetDF = notificationDF.selectExpr("InvoiceNumber as key", "to_json(struct(*)) as value")
+    val explodeDF = valueDF.selectExpr("value.InvoiceNumber", "value.CreatedTime", "value.StoreID",
+      "value.PosID", "value.CustomerType", "value.PaymentMethod", "value.DeliveryType", "value.DeliveryAddress.City",
+      "value.DeliveryAddress.State", "value.DeliveryAddress.PinCode", "explode(value.InvoiceLineItems) as LineItem")
 
-    val kafkaTargetDF = notificationDF.selectExpr("InvoiceNumber as key",
-      """to_json(named_struct('CustomerCardNo', CustomerCardNo,
-        |'TotalAmount', TotalAmount,
-        |'EarnedLoyaltyPoints', TotalAmount * 0.2
-        |)) as value""".stripMargin)
+    val flattenedDF = explodeDF
+      .withColumn("ItemCode", expr("LineItem.ItemCode"))
+      .withColumn("ItemDescription", expr("LineItem.ItemDescription"))
+      .withColumn("ItemPrice", expr("LineItem.ItemPrice"))
+      .withColumn("ItemQty", expr("LineItem.ItemQty"))
+      .withColumn("TotalValue", expr("LineItem.TotalValue"))
+      .drop("LineItem")
 
-    /*
-    val notificationWriterQuery = kafkaTargetDF.writeStream
-      .format("console")
+    val invoiceWriterQuery = flattenedDF.writeStream
+      .format("json")
+      .queryName("Flattened Invoice Writer")
       .outputMode("append")
-      .option("truncate", "false")
+      .option("path", "output")
       .option("checkpointLocation", "chk-point-dir")
-      .start()
-    */
-
-
-    val notificationWriterQuery = kafkaTargetDF
-      .writeStream
-      .queryName("Notification Writer")
-      .format("kafka")
-      .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("topic", "notifications")
-      .outputMode("append")
-      .option("checkpointLocation", "chk-point-dir")
+      .trigger(Trigger.ProcessingTime("1 minute"))
       .start()
 
-    logger.info("Listening and writing to Kafka")
-    notificationWriterQuery.awaitTermination()
+    logger.info("Listening to Kafka")
+    invoiceWriterQuery.awaitTermination()
 
   }
 
