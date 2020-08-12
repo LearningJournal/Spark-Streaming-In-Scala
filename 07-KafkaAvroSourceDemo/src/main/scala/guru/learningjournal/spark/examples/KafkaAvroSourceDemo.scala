@@ -7,7 +7,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.avro.functions.from_avro
 import org.apache.spark.sql.functions.{col, expr, round, struct, sum, to_json}
 
-object KafkaAvroSinkDemo extends Serializable {
+object KafkaAvroSourceDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
 
   def main(args: Array[String]): Unit = {
