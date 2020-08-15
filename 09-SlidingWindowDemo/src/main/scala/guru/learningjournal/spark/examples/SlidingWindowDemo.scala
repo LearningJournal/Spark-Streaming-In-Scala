@@ -13,7 +13,7 @@ object SlidingWindowDemo extends Serializable {
 
     val spark = SparkSession.builder()
       .master("local[3]")
-      .appName("Tumbling Window Demo")
+      .appName("Sliding Window Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
       .getOrCreate()
 
