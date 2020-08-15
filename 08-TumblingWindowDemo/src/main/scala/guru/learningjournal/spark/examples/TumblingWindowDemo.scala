@@ -13,7 +13,7 @@ object TumblingWindowDemo extends Serializable {
 
     val spark = SparkSession.builder()
       .master("local[3]")
-      .appName("Kafka Sink Demo")
+      .appName("Tumbling Window Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
       .getOrCreate()
 
@@ -49,7 +49,7 @@ object TumblingWindowDemo extends Serializable {
 
     val outputDF = countDF.select("StoreID", "window.start", "window.end", "count")
 
-    val wordCountQuery = outputDF.writeStream
+    val windowQuery = outputDF.writeStream
       .format("console")
       .outputMode("update")
       .option("checkpointLocation", "chk-point-dir")
@@ -57,7 +57,7 @@ object TumblingWindowDemo extends Serializable {
       .start()
 
     logger.info("Counting Invoices")
-    wordCountQuery.awaitTermination()
+    windowQuery.awaitTermination()
 
   }
 }
