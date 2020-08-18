@@ -2,6 +2,7 @@ package guru.learningjournal.spark.examples
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
@@ -40,18 +41,26 @@ object TumblingWindowDemo extends Serializable {
       .withColumn("Buy", expr("case when Type == 'BUY' then Amount else 0 end"))
       .withColumn("Sell", expr("case when Type == 'SELL' then Amount else 0 end"))
 
-    //tradeDF.printSchema()
-    //tradeDF.show(false)
-
     val windowAggDF = tradeDF
       .groupBy( // col("BrokerCode"),
         window(col("CreatedTime"), "15 minute"))
       .agg(sum("Buy").alias("TotalBuy"),
         sum("Sell").alias("TotalSell"))
 
+
     val outputDF = windowAggDF.select("window.start", "window.end", "TotalBuy", "TotalSell")
 
-    //outputDF.show(false)
+    /*
+    val runningTotalWindow = Window.orderBy("end")
+      .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+
+    val finalOutputDF = outputDF
+      .withColumn("RTotalBuy", sum("TotalBuy").over(runningTotalWindow))
+      .withColumn("RTotalSell", sum("TotalSell").over(runningTotalWindow))
+      .withColumn("NetValue", expr("RTotalBuy - RTotalSell"))
+
+    finalOutputDF.show(false)
+    */
 
     val windowQuery = outputDF.writeStream
       .format("console")
