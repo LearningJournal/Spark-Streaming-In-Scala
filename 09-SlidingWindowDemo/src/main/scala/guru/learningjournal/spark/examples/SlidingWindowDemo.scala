@@ -2,7 +2,7 @@ package guru.learningjournal.spark.examples
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions.{col, from_json, to_timestamp, window}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 
@@ -15,39 +15,37 @@ object SlidingWindowDemo extends Serializable {
       .master("local[3]")
       .appName("Sliding Window Demo")
       .config("spark.streaming.stopGracefullyOnShutdown", "true")
+      .config("spark.sql.shuffle.partitions", 1)
       .getOrCreate()
 
     val invoiceSchema = StructType(List(
-      StructField("InvoiceNumber", StringType),
       StructField("CreatedTime", StringType),
-      StructField("StoreID", StringType),
-      StructField("TotalAmount", DoubleType)
+      StructField("Reading", DoubleType)
     ))
 
     val kafkaSourceDF = spark
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("subscribe", "invoices")
+      .option("subscribe", "sensor")
       .option("startingOffsets", "earliest")
       .load()
 
-    val valueDF = kafkaSourceDF.select(from_json(col("value").cast("string"), invoiceSchema).alias("value"))
+    val valueDF = kafkaSourceDF.select(col("key").cast("string").alias("SensorID"),
+      from_json(col("value").cast("string"), invoiceSchema).alias("value"))
 
-    //valueDF.printSchema()
-    //valueDF.show(false)
-
-    val invoiceDF = valueDF.select("value.*")
+    val sensorDF = valueDF.select("SensorID", "value.*")
       .withColumn("CreatedTime", to_timestamp(col("CreatedTime"), "yyyy-MM-dd HH:mm:ss"))
 
-    val countDF = invoiceDF.groupBy(col("StoreID"),
-      window(col("CreatedTime"), "5 minute", "1 minute"))
-      .count()
 
-    //countDF.printSchema()
-    //countDF.show(false)
+    val aggDF = sensorDF
+      .withWatermark("CreatedTime", "30 minute")
+      .groupBy(col("SensorID"),
+        window(col("CreatedTime"), "15 minute", "5 minute"))
+      .agg(max("Reading").alias("MaxReading"))
 
-    val outputDF = countDF.select("StoreID", "window.start", "window.end", "count")
+    val outputDF = aggDF.select("SensorID", "window.start", "window.end", "MaxReading")
+    //outputDF.show()
 
     val windowQuery = outputDF.writeStream
       .format("console")
