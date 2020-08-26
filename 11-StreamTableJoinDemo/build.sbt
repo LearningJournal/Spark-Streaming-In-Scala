@@ -8,7 +8,9 @@ val sparkVersion = "3.0.0"
 val sparkDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
-  "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion
+  "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion,
+  "com.datastax.spark" %% "spark-cassandra-connector" % "3.0.0-beta",
+  "joda-time" % "joda-time" % "2.10.2"
 )
 
 libraryDependencies ++= sparkDependencies
