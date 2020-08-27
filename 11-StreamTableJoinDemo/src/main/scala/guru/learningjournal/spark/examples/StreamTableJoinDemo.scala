@@ -1,8 +1,10 @@
+package guru.learningjournal.spark.examples
+
 import org.apache.log4j.Logger
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{col, from_json, to_timestamp}
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object StreamTableJoinDemo extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
