@@ -1,4 +1,4 @@
-name := "StreamOuterJoinDemo"
+name := "StreamingWatermarkDemo"
 organization := "guru.learningjournal"
 version := "0.1"
 scalaVersion := "2.12.10"
